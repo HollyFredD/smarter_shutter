@@ -45,8 +45,11 @@ from .const import (
     CONF_TRAVEL_TIME_UP,
     CONF_TRAVEL_TIME_DOWN,
     CONF_MOTOR_INERTIA,
+    CONF_STOP_METHOD,
+    STOP_METHOD_RESEND,
     DEFAULT_TRAVEL_TIME,
     DEFAULT_MOTOR_INERTIA,
+    DEFAULT_STOP_METHOD,
     DIR_UP,
     DIR_DOWN,
 )
@@ -103,6 +106,11 @@ class SmarterShutterCover(CoverEntity, RestoreEntity):
         )
 
         self._tc = TravelCalculator(travel_up, travel_down, inertia)
+
+        self._stop_method = options.get(
+            CONF_STOP_METHOD,
+            data.get(CONF_STOP_METHOD, DEFAULT_STOP_METHOD),
+        )
 
         self._last_command_time: float = 0.0
         self._unsub_position_updater = None
@@ -238,17 +246,28 @@ class SmarterShutterCover(CoverEntity, RestoreEntity):
             self._tc.stop()
             raise
 
-    async def _async_stop_motor(self) -> None:
-        """Stop the motor."""
+    async def _async_stop_motor(self, direction: str | None = None) -> None:
+        """Stop the motor.
+
+        If stop_method is resend_direction, resend the current direction
+        command to toggle the motor off. Otherwise use the stop command.
+        """
         try:
             if self._control_mode == MODE_SWITCHES:
                 await self._async_turn_off_switch(self._open_switch)
                 await self._async_turn_off_switch(self._close_switch)
             elif self._control_mode == MODE_COVER:
-                await self.hass.services.async_call(
-                    "cover", SERVICE_STOP_COVER,
-                    {"entity_id": self._cover_entity},
-                )
+                if self._stop_method == STOP_METHOD_RESEND and direction is not None:
+                    service = SERVICE_OPEN_COVER if direction == DIR_UP else SERVICE_CLOSE_COVER
+                    await self.hass.services.async_call(
+                        "cover", service,
+                        {"entity_id": self._cover_entity},
+                    )
+                else:
+                    await self.hass.services.async_call(
+                        "cover", SERVICE_STOP_COVER,
+                        {"entity_id": self._cover_entity},
+                    )
         except Exception:
             _LOGGER.exception("Failed to stop motor")
             raise
@@ -269,11 +288,12 @@ class SmarterShutterCover(CoverEntity, RestoreEntity):
 
     async def _async_stop_movement(self) -> None:
         """Stop current movement, update position, stop motor."""
+        direction = self._tc.direction
         self._cancel_all_timers()
         self._tc.stop()
 
         self._last_command_time = time.monotonic()
-        await self._async_stop_motor()
+        await self._async_stop_motor(direction)
 
         self.async_write_ha_state()
 
@@ -284,6 +304,7 @@ class SmarterShutterCover(CoverEntity, RestoreEntity):
         self._stop_position_updater()
 
         target = self._tc.target_position
+        direction = self._tc.direction
         self._tc.stop()
 
         if target == 100:
@@ -291,13 +312,13 @@ class SmarterShutterCover(CoverEntity, RestoreEntity):
         elif target == 0:
             self._tc.recalibrate(0)
 
-        self.hass.async_create_task(self._async_guarded_stop_motor())
+        self.hass.async_create_task(self._async_guarded_stop_motor(direction))
         self.async_write_ha_state()
 
-    async def _async_guarded_stop_motor(self) -> None:
+    async def _async_guarded_stop_motor(self, direction: str | None = None) -> None:
         """Stop motor while holding the command cooldown guard."""
         self._last_command_time = time.monotonic()
-        await self._async_stop_motor()
+        await self._async_stop_motor(direction)
 
     @callback
     def _async_update_position(self, _now=None) -> None:

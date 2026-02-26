@@ -30,12 +30,14 @@
         "data": {
           "travel_time_up": "Temps d'ouverture compl\u00e8te",
           "travel_time_down": "Temps de fermeture compl\u00e8te",
-          "motor_inertia": "D\u00e9lai de d\u00e9marrage moteur"
+          "motor_inertia": "D\u00e9lai de d\u00e9marrage moteur",
+          "stop_method": "M\u00e9thode d'arr\u00eat"
         },
         "data_description": {
           "travel_time_up": "Temps en secondes pour passer de compl\u00e8tement ferm\u00e9 \u00e0 compl\u00e8tement ouvert.",
           "travel_time_down": "Temps en secondes pour passer de compl\u00e8tement ouvert \u00e0 compl\u00e8tement ferm\u00e9.",
-          "motor_inertia": "D\u00e9lai en secondes avant que le moteur commence \u00e0 bouger apr\u00e8s r\u00e9ception de la commande."
+          "motor_inertia": "D\u00e9lai en secondes avant que le moteur commence \u00e0 bouger apr\u00e8s r\u00e9ception de la commande.",
+          "stop_method": "Comment arr\u00eater le moteur. 'Commande stop' envoie un appel de service stop. 'Renvoyer la direction' renvoie la commande en cours pour basculer le moteur (pour les covers qui ne supportent pas le stop)."
         }
       }
     },
@@ -53,7 +55,8 @@
         "data": {
           "travel_time_up": "Temps d'ouverture compl\u00e8te",
           "travel_time_down": "Temps de fermeture compl\u00e8te",
-          "motor_inertia": "D\u00e9lai de d\u00e9marrage moteur"
+          "motor_inertia": "D\u00e9lai de d\u00e9marrage moteur",
+          "stop_method": "M\u00e9thode d'arr\u00eat"
         }
       }
     },
@@ -66,6 +69,12 @@
       "options": {
         "switches": "Deux switches (haut/bas)",
         "cover": "Entit\u00e9 cover existante"
+      }
+    },
+    "stop_method": {
+      "options": {
+        "stop_command": "Commande stop",
+        "resend_direction": "Renvoyer la direction (toggle)"
       }
     }
   }

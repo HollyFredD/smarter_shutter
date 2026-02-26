@@ -23,8 +23,12 @@ from .const import (
     CONF_TRAVEL_TIME_UP,
     CONF_TRAVEL_TIME_DOWN,
     CONF_MOTOR_INERTIA,
+    CONF_STOP_METHOD,
+    STOP_METHOD_STOP,
+    STOP_METHOD_RESEND,
     DEFAULT_TRAVEL_TIME,
     DEFAULT_MOTOR_INERTIA,
+    DEFAULT_STOP_METHOD,
 )
 
 
@@ -165,6 +169,21 @@ class SmarterShutterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             mode=selector.NumberSelectorMode.BOX,
                         )
                     ),
+                    vol.Required(
+                        CONF_STOP_METHOD, default=DEFAULT_STOP_METHOD
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[
+                                selector.SelectOptionDict(
+                                    value=STOP_METHOD_STOP, label="stop_command"
+                                ),
+                                selector.SelectOptionDict(
+                                    value=STOP_METHOD_RESEND, label="resend_direction"
+                                ),
+                            ],
+                            translation_key="stop_method",
+                        )
+                    ),
                 }
             ),
             errors=errors,
@@ -226,6 +245,22 @@ class SmarterShutterOptionsFlow(config_entries.OptionsFlow):
                         selector.NumberSelectorConfig(
                             min=0, max=5, step=0.1, unit_of_measurement="s",
                             mode=selector.NumberSelectorMode.BOX,
+                        )
+                    ),
+                    vol.Required(
+                        CONF_STOP_METHOD,
+                        default=current.get(CONF_STOP_METHOD, DEFAULT_STOP_METHOD),
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[
+                                selector.SelectOptionDict(
+                                    value=STOP_METHOD_STOP, label="stop_command"
+                                ),
+                                selector.SelectOptionDict(
+                                    value=STOP_METHOD_RESEND, label="resend_direction"
+                                ),
+                            ],
+                            translation_key="stop_method",
                         )
                     ),
                 }

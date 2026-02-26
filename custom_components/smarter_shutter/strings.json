@@ -30,12 +30,14 @@
         "data": {
           "travel_time_up": "Full open travel time",
           "travel_time_down": "Full close travel time",
-          "motor_inertia": "Motor startup delay"
+          "motor_inertia": "Motor startup delay",
+          "stop_method": "Stop method"
         },
         "data_description": {
           "travel_time_up": "Time in seconds for the shutter to go from fully closed to fully open.",
           "travel_time_down": "Time in seconds for the shutter to go from fully open to fully closed.",
-          "motor_inertia": "Delay in seconds before the motor actually starts moving after receiving a command."
+          "motor_inertia": "Delay in seconds before the motor actually starts moving after receiving a command.",
+          "stop_method": "How to stop the motor. 'Stop command' sends a stop service call. 'Resend direction' resends the current direction to toggle the motor off (for covers that don't support stop)."
         }
       }
     },
@@ -53,7 +55,8 @@
         "data": {
           "travel_time_up": "Full open travel time",
           "travel_time_down": "Full close travel time",
-          "motor_inertia": "Motor startup delay"
+          "motor_inertia": "Motor startup delay",
+          "stop_method": "Stop method"
         }
       }
     },
@@ -66,6 +69,12 @@
       "options": {
         "switches": "Two switches (up/down)",
         "cover": "Existing cover entity"
+      }
+    },
+    "stop_method": {
+      "options": {
+        "stop_command": "Stop command",
+        "resend_direction": "Resend direction (toggle)"
       }
     }
   }
