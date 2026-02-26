@@ -1,0 +1,13 @@
+{
+  "domain": "smarter_shutter",
+  "name": "Smarter Shutter",
+  "version": "0.1.0",
+  "documentation": "https://github.com/HollyFredD/smarter_shutter",
+  "issue_tracker": "https://github.com/HollyFredD/smarter_shutter/issues",
+  "codeowners": ["@HollyFredD"],
+  "dependencies": [],
+  "requirements": [],
+  "config_flow": true,
+  "iot_class": "assumed_state",
+  "integration_type": "device"
+}

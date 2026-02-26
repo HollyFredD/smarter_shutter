@@ -1,0 +1,72 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Ajouter un volet",
+        "description": "Configurer un nouveau volet avec suivi de position.",
+        "data": {
+          "name": "Nom du volet",
+          "control_mode": "Mode de controle"
+        }
+      },
+      "switches": {
+        "title": "Entites switch",
+        "description": "Selectionnez les switches qui controlent le moteur du volet.",
+        "data": {
+          "open_switch_entity_id": "Switch ouverture (montee)",
+          "close_switch_entity_id": "Switch fermeture (descente)"
+        }
+      },
+      "cover": {
+        "title": "Entite cover",
+        "description": "Selectionnez l'entite cover source.",
+        "data": {
+          "cover_entity_id": "Entite cover source"
+        }
+      },
+      "timing": {
+        "title": "Calibration des temps",
+        "description": "Indiquez les temps de course mesures lors de la calibration.",
+        "data": {
+          "travel_time_up": "Temps d'ouverture complete",
+          "travel_time_down": "Temps de fermeture complete",
+          "motor_inertia": "Delai de demarrage moteur"
+        },
+        "data_description": {
+          "travel_time_up": "Temps en secondes pour passer de completement ferme a completement ouvert.",
+          "travel_time_down": "Temps en secondes pour passer de completement ouvert a completement ferme.",
+          "motor_inertia": "Delai en secondes avant que le moteur commence a bouger apres reception de la commande."
+        }
+      }
+    },
+    "error": {
+      "invalid_time": "Le temps de course doit etre superieur a zero."
+    },
+    "abort": {
+      "already_configured": "Ce volet est deja configure."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Temps du volet",
+        "data": {
+          "travel_time_up": "Temps d'ouverture complete",
+          "travel_time_down": "Temps de fermeture complete",
+          "motor_inertia": "Delai de demarrage moteur"
+        }
+      }
+    },
+    "error": {
+      "invalid_time": "Le temps de course doit etre superieur a zero."
+    }
+  },
+  "selector": {
+    "control_mode": {
+      "options": {
+        "switches": "Deux switches (haut/bas)",
+        "cover": "Entite cover existante"
+      }
+    }
+  }
+}

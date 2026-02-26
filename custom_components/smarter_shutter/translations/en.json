@@ -1,0 +1,72 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add a shutter",
+        "description": "Configure a new time-based shutter.",
+        "data": {
+          "name": "Shutter name",
+          "control_mode": "Control mode"
+        }
+      },
+      "switches": {
+        "title": "Switch entities",
+        "description": "Select the switch entities that control the shutter motor.",
+        "data": {
+          "open_switch_entity_id": "Open (up) switch",
+          "close_switch_entity_id": "Close (down) switch"
+        }
+      },
+      "cover": {
+        "title": "Cover entity",
+        "description": "Select the cover entity to wrap.",
+        "data": {
+          "cover_entity_id": "Source cover entity"
+        }
+      },
+      "timing": {
+        "title": "Timing calibration",
+        "description": "Set the travel times measured during calibration.",
+        "data": {
+          "travel_time_up": "Full open travel time",
+          "travel_time_down": "Full close travel time",
+          "motor_inertia": "Motor startup delay"
+        },
+        "data_description": {
+          "travel_time_up": "Time in seconds for the shutter to go from fully closed to fully open.",
+          "travel_time_down": "Time in seconds for the shutter to go from fully open to fully closed.",
+          "motor_inertia": "Delay in seconds before the motor actually starts moving after receiving a command."
+        }
+      }
+    },
+    "error": {
+      "invalid_time": "Travel time must be greater than zero."
+    },
+    "abort": {
+      "already_configured": "This shutter is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Shutter timing",
+        "data": {
+          "travel_time_up": "Full open travel time",
+          "travel_time_down": "Full close travel time",
+          "motor_inertia": "Motor startup delay"
+        }
+      }
+    },
+    "error": {
+      "invalid_time": "Travel time must be greater than zero."
+    }
+  },
+  "selector": {
+    "control_mode": {
+      "options": {
+        "switches": "Two switches (up/down)",
+        "cover": "Existing cover entity"
+      }
+    }
+  }
+}
