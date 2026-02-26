@@ -3,46 +3,46 @@
     "step": {
       "user": {
         "title": "Add a shutter",
-        "description": "Configure a new time-based shutter.",
+        "description": "Add position tracking to a shutter or blind that does not report its position natively.",
         "data": {
-          "name": "Shutter name",
-          "control_mode": "Control mode"
+          "name": "Name",
+          "control_mode": "How is your shutter controlled?"
         }
       },
       "switches": {
-        "title": "Switch entities",
-        "description": "Select the switch entities that control the shutter motor.",
+        "title": "Motor switches",
+        "description": "Pick the two switches (relays) that drive the shutter motor -- one for each direction.",
         "data": {
-          "open_switch_entity_id": "Open (up) switch",
-          "close_switch_entity_id": "Close (down) switch"
+          "open_switch_entity_id": "Switch that opens (moves up)",
+          "close_switch_entity_id": "Switch that closes (moves down)"
         }
       },
       "cover": {
-        "title": "Cover entity",
-        "description": "Select the cover entity to wrap.",
+        "title": "Source cover",
+        "description": "Pick the existing cover that this integration will add position tracking to.",
         "data": {
-          "cover_entity_id": "Source cover entity"
+          "cover_entity_id": "Cover to enhance"
         }
       },
       "timing": {
-        "title": "Timing calibration",
-        "description": "Set the travel times measured during calibration.",
+        "title": "Travel times",
+        "description": "Measure how long your shutter takes to travel its full range. Use a stopwatch, from fully closed to fully open and vice versa.",
         "data": {
-          "travel_time_up": "Full open travel time",
-          "travel_time_down": "Full close travel time",
-          "motor_inertia": "Motor startup delay",
-          "stop_method": "Stop method"
+          "travel_time_up": "Time to fully open",
+          "travel_time_down": "Time to fully close",
+          "motor_inertia": "Motor reaction delay",
+          "stop_method": "How to stop the motor"
         },
         "data_description": {
-          "travel_time_up": "Time in seconds for the shutter to go from fully closed to fully open.",
-          "travel_time_down": "Time in seconds for the shutter to go from fully open to fully closed.",
-          "motor_inertia": "Delay in seconds before the motor actually starts moving after receiving a command.",
-          "stop_method": "How to stop the motor. 'Stop command' sends a stop service call. 'Resend direction' resends the current direction to toggle the motor off (for covers that don't support stop)."
+          "travel_time_up": "Seconds from fully closed to fully open.",
+          "travel_time_down": "Seconds from fully open to fully closed.",
+          "motor_inertia": "Seconds between sending a command and the motor actually starting to move. Set to 0 if the motor reacts instantly.",
+          "stop_method": "Most devices accept a stop command directly. If yours does not (common with some Zigbee relays), choose 'Send direction again' instead -- it resends the current direction to toggle the motor off."
         }
       }
     },
     "error": {
-      "invalid_time": "Travel time must be greater than zero."
+      "invalid_time": "Travel time must be greater than zero seconds."
     },
     "abort": {
       "already_configured": "This shutter is already configured."
@@ -51,30 +51,37 @@
   "options": {
     "step": {
       "init": {
-        "title": "Shutter timing",
+        "title": "Adjust travel times",
+        "description": "Fine-tune the timing if the shutter overshoots or stops short of the target position.",
         "data": {
-          "travel_time_up": "Full open travel time",
-          "travel_time_down": "Full close travel time",
-          "motor_inertia": "Motor startup delay",
-          "stop_method": "Stop method"
+          "travel_time_up": "Time to fully open",
+          "travel_time_down": "Time to fully close",
+          "motor_inertia": "Motor reaction delay",
+          "stop_method": "How to stop the motor"
+        },
+        "data_description": {
+          "travel_time_up": "Seconds from fully closed to fully open.",
+          "travel_time_down": "Seconds from fully open to fully closed.",
+          "motor_inertia": "Seconds between sending a command and the motor actually starting to move. Set to 0 if the motor reacts instantly.",
+          "stop_method": "Most devices accept a stop command directly. If yours does not (common with some Zigbee relays), choose 'Send direction again' instead -- it resends the current direction to toggle the motor off."
         }
       }
     },
     "error": {
-      "invalid_time": "Travel time must be greater than zero."
+      "invalid_time": "Travel time must be greater than zero seconds."
     }
   },
   "selector": {
     "control_mode": {
       "options": {
-        "switches": "Two switches (up/down)",
-        "cover": "Existing cover entity"
+        "switches": "Two relay switches (one up, one down)",
+        "cover": "An existing cover (without position)"
       }
     },
     "stop_method": {
       "options": {
-        "stop_command": "Stop command",
-        "resend_direction": "Resend direction (toggle)"
+        "stop_command": "Send a stop command",
+        "resend_direction": "Send direction again to toggle off"
       }
     }
   }
