@@ -1,10 +1,15 @@
 """Config flow for Smarter Shutter."""
 
+from __future__ import annotations
+
+from typing import Any
+
 import voluptuous as vol
 
 from homeassistant import config_entries
 from homeassistant.const import CONF_NAME
 from homeassistant.core import callback
+from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
 from .const import (
@@ -30,9 +35,11 @@ class SmarterShutterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     def __init__(self) -> None:
         """Initialize the config flow."""
-        self._data: dict = {}
+        self._data: dict[str, Any] = {}
 
-    async def async_step_user(self, user_input=None):
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
         """Step 1: name and control mode."""
         if user_input is not None:
             self._data.update(user_input)
@@ -64,7 +71,9 @@ class SmarterShutterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ),
         )
 
-    async def async_step_switches(self, user_input=None):
+    async def async_step_switches(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
         """Step 2a: select switch entities."""
         if user_input is not None:
             self._data.update(user_input)
@@ -84,7 +93,9 @@ class SmarterShutterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ),
         )
 
-    async def async_step_cover(self, user_input=None):
+    async def async_step_cover(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
         """Step 2b: select cover entity."""
         if user_input is not None:
             self._data.update(user_input)
@@ -101,7 +112,9 @@ class SmarterShutterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ),
         )
 
-    async def async_step_timing(self, user_input=None):
+    async def async_step_timing(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
         """Step 3: timing configuration."""
         errors = {}
 
@@ -113,7 +126,11 @@ class SmarterShutterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             if not errors:
                 self._data.update(user_input)
-                await self.async_set_unique_id(self._data[CONF_NAME])
+                if self._data[CONF_CONTROL_MODE] == MODE_SWITCHES:
+                    unique_id = f"{self._data[CONF_OPEN_SWITCH]}_{self._data[CONF_CLOSE_SWITCH]}"
+                else:
+                    unique_id = self._data[CONF_COVER_ENTITY]
+                await self.async_set_unique_id(unique_id)
                 self._abort_if_unique_id_configured()
                 return self.async_create_entry(
                     title=self._data[CONF_NAME],
@@ -163,7 +180,9 @@ class SmarterShutterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class SmarterShutterOptionsFlow(config_entries.OptionsFlow):
     """Handle options flow for reconfiguring timing."""
 
-    async def async_step_init(self, user_input=None):
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
         """Manage timing options."""
         errors = {}
 

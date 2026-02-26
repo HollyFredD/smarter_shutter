@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from datetime import timedelta
 
 from homeassistant.components.cover import (
@@ -20,6 +21,7 @@ from homeassistant.const import (
     STATE_ON,
     STATE_OFF,
     STATE_OPEN,
+    STATE_CLOSED,
     STATE_OPENING,
     STATE_CLOSING,
 )
@@ -53,6 +55,7 @@ from .travel_calculator import TravelCalculator
 _LOGGER = logging.getLogger(__name__)
 
 POSITION_UPDATE_INTERVAL = timedelta(seconds=1)
+COMMAND_COOLDOWN_SECONDS = 2.0
 
 
 async def async_setup_entry(
@@ -68,7 +71,7 @@ class SmarterShutterCover(CoverEntity, RestoreEntity):
     """A cover with time-based position tracking."""
 
     _attr_device_class = CoverDeviceClass.SHUTTER
-    _attr_has_entity_name = True
+    _attr_has_entity_name = False
     _attr_should_poll = False
     _attr_assumed_state = True
 
@@ -101,7 +104,7 @@ class SmarterShutterCover(CoverEntity, RestoreEntity):
 
         self._tc = TravelCalculator(travel_up, travel_down, inertia)
 
-        self._command_in_progress = False
+        self._last_command_time: float = 0.0
         self._unsub_position_updater = None
         self._unsub_stop_timer = None
         self._unsub_state_listeners: list = []
@@ -176,7 +179,6 @@ class SmarterShutterCover(CoverEntity, RestoreEntity):
         if target == current:
             return
 
-        # Stop any ongoing movement first
         if self._tc.is_traveling:
             await self._async_stop_movement()
 
@@ -188,9 +190,12 @@ class SmarterShutterCover(CoverEntity, RestoreEntity):
         travel_time = self._tc.time_to_position(target)
         self._tc.start_travel(direction, target)
 
-        self._command_in_progress = True
-        await self._async_activate_motor(direction)
-        self._command_in_progress = False
+        self._last_command_time = time.monotonic()
+        try:
+            await self._async_activate_motor(direction)
+        except Exception:
+            self._tc.stop()
+            raise
 
         self._start_position_updater()
 
@@ -208,36 +213,45 @@ class SmarterShutterCover(CoverEntity, RestoreEntity):
 
     async def _async_activate_motor(self, direction: str) -> None:
         """Turn on the appropriate switch or send cover command."""
-        if self._control_mode == MODE_SWITCHES:
-            # Make sure opposite switch is off first
-            if direction == DIR_UP:
-                await self._async_turn_off_switch(self._close_switch)
-                await self._async_turn_on_switch(self._open_switch)
-            else:
-                await self._async_turn_off_switch(self._open_switch)
-                await self._async_turn_on_switch(self._close_switch)
-        elif self._control_mode == MODE_COVER:
-            if direction == DIR_UP:
-                await self.hass.services.async_call(
-                    "cover", SERVICE_OPEN_COVER,
-                    {"entity_id": self._cover_entity},
-                )
-            else:
-                await self.hass.services.async_call(
-                    "cover", SERVICE_CLOSE_COVER,
-                    {"entity_id": self._cover_entity},
-                )
+        try:
+            if self._control_mode == MODE_SWITCHES:
+                if direction == DIR_UP:
+                    await self._async_turn_off_switch(self._close_switch)
+                    await self._async_turn_on_switch(self._open_switch)
+                else:
+                    await self._async_turn_off_switch(self._open_switch)
+                    await self._async_turn_on_switch(self._close_switch)
+            elif self._control_mode == MODE_COVER:
+                if direction == DIR_UP:
+                    await self.hass.services.async_call(
+                        "cover", SERVICE_OPEN_COVER,
+                        {"entity_id": self._cover_entity},
+                    )
+                else:
+                    await self.hass.services.async_call(
+                        "cover", SERVICE_CLOSE_COVER,
+                        {"entity_id": self._cover_entity},
+                    )
+        except Exception:
+            _LOGGER.exception("Failed to activate motor (%s)", direction)
+            self._cancel_all_timers()
+            self._tc.stop()
+            raise
 
     async def _async_stop_motor(self) -> None:
         """Stop the motor."""
-        if self._control_mode == MODE_SWITCHES:
-            await self._async_turn_off_switch(self._open_switch)
-            await self._async_turn_off_switch(self._close_switch)
-        elif self._control_mode == MODE_COVER:
-            await self.hass.services.async_call(
-                "cover", SERVICE_STOP_COVER,
-                {"entity_id": self._cover_entity},
-            )
+        try:
+            if self._control_mode == MODE_SWITCHES:
+                await self._async_turn_off_switch(self._open_switch)
+                await self._async_turn_off_switch(self._close_switch)
+            elif self._control_mode == MODE_COVER:
+                await self.hass.services.async_call(
+                    "cover", SERVICE_STOP_COVER,
+                    {"entity_id": self._cover_entity},
+                )
+        except Exception:
+            _LOGGER.exception("Failed to stop motor")
+            raise
 
     async def _async_turn_on_switch(self, entity_id: str) -> None:
         """Turn on a switch."""
@@ -258,9 +272,8 @@ class SmarterShutterCover(CoverEntity, RestoreEntity):
         self._cancel_all_timers()
         self._tc.stop()
 
-        self._command_in_progress = True
+        self._last_command_time = time.monotonic()
         await self._async_stop_motor()
-        self._command_in_progress = False
 
         self.async_write_ha_state()
 
@@ -269,21 +282,22 @@ class SmarterShutterCover(CoverEntity, RestoreEntity):
         """Called when the travel timer expires."""
         self._unsub_stop_timer = None
         self._stop_position_updater()
-        self._tc.update_position()
 
-        # If we reached an end stop, recalibrate
-        if self._tc.target_position == 100:
-            self._tc.recalibrate(100)
-        elif self._tc.target_position == 0:
-            self._tc.recalibrate(0)
-
+        target = self._tc.target_position
         self._tc.stop()
 
-        self._command_in_progress = True
-        self.hass.async_create_task(self._async_stop_motor())
-        self._command_in_progress = False
+        if target == 100:
+            self._tc.recalibrate(100)
+        elif target == 0:
+            self._tc.recalibrate(0)
 
+        self.hass.async_create_task(self._async_guarded_stop_motor())
         self.async_write_ha_state()
+
+    async def _async_guarded_stop_motor(self) -> None:
+        """Stop motor while holding the command cooldown guard."""
+        self._last_command_time = time.monotonic()
+        await self._async_stop_motor()
 
     @callback
     def _async_update_position(self, _now=None) -> None:
@@ -291,6 +305,7 @@ class SmarterShutterCover(CoverEntity, RestoreEntity):
         self._tc.update_position()
         self.async_write_ha_state()
 
+    @callback
     def _start_position_updater(self) -> None:
         """Start periodic position updates."""
         self._stop_position_updater()
@@ -298,12 +313,14 @@ class SmarterShutterCover(CoverEntity, RestoreEntity):
             self.hass, self._async_update_position, POSITION_UPDATE_INTERVAL
         )
 
+    @callback
     def _stop_position_updater(self) -> None:
         """Stop periodic position updates."""
         if self._unsub_position_updater is not None:
             self._unsub_position_updater()
             self._unsub_position_updater = None
 
+    @callback
     def _cancel_all_timers(self) -> None:
         """Cancel all active timers."""
         self._stop_position_updater()
@@ -340,7 +357,7 @@ class SmarterShutterCover(CoverEntity, RestoreEntity):
     @callback
     def _async_source_state_changed(self, event: Event) -> None:
         """Handle state change of source switch/cover."""
-        if self._command_in_progress:
+        if time.monotonic() - self._last_command_time < COMMAND_COOLDOWN_SECONDS:
             return
 
         entity_id = event.data.get("entity_id")
@@ -362,23 +379,31 @@ class SmarterShutterCover(CoverEntity, RestoreEntity):
         old = old_state.state
 
         if new == STATE_ON and old == STATE_OFF:
-            # Switch turned on externally -> start tracking
             if entity_id == self._open_switch:
                 if self._tc.is_traveling:
                     self._tc.stop()
                     self._cancel_all_timers()
                 self._tc.start_travel(DIR_UP, 100.0)
                 self._start_position_updater()
+                self._unsub_stop_timer = async_call_later(
+                    self.hass,
+                    self._tc.time_to_position(100.0),
+                    self._async_timed_stop,
+                )
             elif entity_id == self._close_switch:
                 if self._tc.is_traveling:
                     self._tc.stop()
                     self._cancel_all_timers()
                 self._tc.start_travel(DIR_DOWN, 0.0)
                 self._start_position_updater()
+                self._unsub_stop_timer = async_call_later(
+                    self.hass,
+                    self._tc.time_to_position(0.0),
+                    self._async_timed_stop,
+                )
             self.async_write_ha_state()
 
         elif new == STATE_OFF and old == STATE_ON:
-            # Switch turned off externally -> stop tracking
             if self._tc.is_traveling:
                 self._cancel_all_timers()
                 self._tc.stop()
@@ -393,13 +418,23 @@ class SmarterShutterCover(CoverEntity, RestoreEntity):
             if not self._tc.is_traveling:
                 self._tc.start_travel(DIR_UP, 100.0)
                 self._start_position_updater()
+                self._unsub_stop_timer = async_call_later(
+                    self.hass,
+                    self._tc.time_to_position(100.0),
+                    self._async_timed_stop,
+                )
                 self.async_write_ha_state()
         elif state == STATE_CLOSING:
             if not self._tc.is_traveling:
                 self._tc.start_travel(DIR_DOWN, 0.0)
                 self._start_position_updater()
+                self._unsub_stop_timer = async_call_later(
+                    self.hass,
+                    self._tc.time_to_position(0.0),
+                    self._async_timed_stop,
+                )
                 self.async_write_ha_state()
-        elif state in (STATE_OPEN, "closed", "stopped"):
+        elif state in (STATE_OPEN, STATE_CLOSED):
             if self._tc.is_traveling:
                 self._cancel_all_timers()
                 self._tc.stop()

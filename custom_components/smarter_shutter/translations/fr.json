@@ -6,44 +6,44 @@
         "description": "Configurer un nouveau volet avec suivi de position.",
         "data": {
           "name": "Nom du volet",
-          "control_mode": "Mode de controle"
+          "control_mode": "Mode de contr\u00f4le"
         }
       },
       "switches": {
-        "title": "Entites switch",
-        "description": "Selectionnez les switches qui controlent le moteur du volet.",
+        "title": "Entit\u00e9s switch",
+        "description": "S\u00e9lectionnez les switches qui contr\u00f4lent le moteur du volet.",
         "data": {
-          "open_switch_entity_id": "Switch ouverture (montee)",
+          "open_switch_entity_id": "Switch ouverture (mont\u00e9e)",
           "close_switch_entity_id": "Switch fermeture (descente)"
         }
       },
       "cover": {
-        "title": "Entite cover",
-        "description": "Selectionnez l'entite cover source.",
+        "title": "Entit\u00e9 cover",
+        "description": "S\u00e9lectionnez l'entit\u00e9 cover source.",
         "data": {
-          "cover_entity_id": "Entite cover source"
+          "cover_entity_id": "Entit\u00e9 cover source"
         }
       },
       "timing": {
         "title": "Calibration des temps",
-        "description": "Indiquez les temps de course mesures lors de la calibration.",
+        "description": "Indiquez les temps de course mesur\u00e9s lors de la calibration.",
         "data": {
-          "travel_time_up": "Temps d'ouverture complete",
-          "travel_time_down": "Temps de fermeture complete",
-          "motor_inertia": "Delai de demarrage moteur"
+          "travel_time_up": "Temps d'ouverture compl\u00e8te",
+          "travel_time_down": "Temps de fermeture compl\u00e8te",
+          "motor_inertia": "D\u00e9lai de d\u00e9marrage moteur"
         },
         "data_description": {
-          "travel_time_up": "Temps en secondes pour passer de completement ferme a completement ouvert.",
-          "travel_time_down": "Temps en secondes pour passer de completement ouvert a completement ferme.",
-          "motor_inertia": "Delai en secondes avant que le moteur commence a bouger apres reception de la commande."
+          "travel_time_up": "Temps en secondes pour passer de compl\u00e8tement ferm\u00e9 \u00e0 compl\u00e8tement ouvert.",
+          "travel_time_down": "Temps en secondes pour passer de compl\u00e8tement ouvert \u00e0 compl\u00e8tement ferm\u00e9.",
+          "motor_inertia": "D\u00e9lai en secondes avant que le moteur commence \u00e0 bouger apr\u00e8s r\u00e9ception de la commande."
         }
       }
     },
     "error": {
-      "invalid_time": "Le temps de course doit etre superieur a zero."
+      "invalid_time": "Le temps de course doit \u00eatre sup\u00e9rieur \u00e0 z\u00e9ro."
     },
     "abort": {
-      "already_configured": "Ce volet est deja configure."
+      "already_configured": "Ce volet est d\u00e9j\u00e0 configur\u00e9."
     }
   },
   "options": {
@@ -51,21 +51,21 @@
       "init": {
         "title": "Temps du volet",
         "data": {
-          "travel_time_up": "Temps d'ouverture complete",
-          "travel_time_down": "Temps de fermeture complete",
-          "motor_inertia": "Delai de demarrage moteur"
+          "travel_time_up": "Temps d'ouverture compl\u00e8te",
+          "travel_time_down": "Temps de fermeture compl\u00e8te",
+          "motor_inertia": "D\u00e9lai de d\u00e9marrage moteur"
         }
       }
     },
     "error": {
-      "invalid_time": "Le temps de course doit etre superieur a zero."
+      "invalid_time": "Le temps de course doit \u00eatre sup\u00e9rieur \u00e0 z\u00e9ro."
     }
   },
   "selector": {
     "control_mode": {
       "options": {
         "switches": "Deux switches (haut/bas)",
-        "cover": "Entite cover existante"
+        "cover": "Entit\u00e9 cover existante"
       }
     }
   }

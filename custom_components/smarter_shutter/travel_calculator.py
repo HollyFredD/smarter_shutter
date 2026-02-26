@@ -1,6 +1,9 @@
 """Travel calculator for time-based cover position tracking."""
 
+from __future__ import annotations
+
 import time
+from typing import Callable
 
 from .const import DIR_UP, DIR_DOWN
 
@@ -13,11 +16,20 @@ class TravelCalculator:
         travel_time_up: float,
         travel_time_down: float,
         motor_inertia: float = 0.3,
+        time_fn: Callable[[], float] | None = None,
     ) -> None:
         """Initialize the calculator."""
+        if travel_time_up <= 0:
+            raise ValueError(f"travel_time_up must be positive, got {travel_time_up}")
+        if travel_time_down <= 0:
+            raise ValueError(f"travel_time_down must be positive, got {travel_time_down}")
+        if motor_inertia < 0:
+            raise ValueError(f"motor_inertia must be non-negative, got {motor_inertia}")
+
         self._travel_time_up = travel_time_up
         self._travel_time_down = travel_time_down
         self._motor_inertia = motor_inertia
+        self._time_fn = time_fn or time.monotonic
 
         self._position: float = 0.0
         self._target_position: float | None = None
@@ -61,7 +73,7 @@ class TravelCalculator:
         self._start_position = self._position
         self._direction = direction
         self._target_position = target_position
-        self._travel_start = time.monotonic()
+        self._travel_start = self._time_fn()
 
     def stop(self) -> None:
         """Stop movement and freeze position at current calculated value."""
@@ -71,36 +83,22 @@ class TravelCalculator:
         self._target_position = None
 
     def update_position(self) -> int:
-        """Recalculate position based on elapsed time since travel start."""
+        """Recalculate position based on elapsed time since travel start.
+
+        This is a pure calculation - no side effects like recalibration.
+        """
         if not self.is_traveling or self._travel_start is None:
             return self.current_position
 
-        elapsed = time.monotonic() - self._travel_start
+        elapsed = self._time_fn() - self._travel_start
         effective_elapsed = max(0.0, elapsed - self._motor_inertia)
 
         if self._direction == DIR_UP:
-            travel_time = self._travel_time_up
-            total_distance = 100.0 - self._start_position
-            moved = (effective_elapsed / travel_time) * 100.0
-            self._position = min(
-                self._start_position + moved,
-                100.0,
-            )
+            moved = (effective_elapsed / self._travel_time_up) * 100.0
+            self._position = min(self._start_position + moved, 100.0)
         elif self._direction == DIR_DOWN:
-            travel_time = self._travel_time_down
-            total_distance = self._start_position
-            moved = (effective_elapsed / travel_time) * 100.0
-            self._position = max(
-                self._start_position - moved,
-                0.0,
-            )
-
-        # Auto-recalibrate at end stops
-        if self._target_position is not None:
-            if self._direction == DIR_UP and self._position >= 100.0:
-                self.recalibrate(100)
-            elif self._direction == DIR_DOWN and self._position <= 0.0:
-                self.recalibrate(0)
+            moved = (effective_elapsed / self._travel_time_down) * 100.0
+            self._position = max(self._start_position - moved, 0.0)
 
         return self.current_position
 

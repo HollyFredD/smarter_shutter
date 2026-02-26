@@ -1,11 +1,12 @@
 """Smarter Shutter - Time-based cover position tracking."""
 
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN
 
-PLATFORMS = ["cover"]
+PLATFORMS: list[Platform] = [Platform.COVER]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
