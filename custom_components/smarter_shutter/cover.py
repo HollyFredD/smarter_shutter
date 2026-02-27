@@ -112,6 +112,7 @@ class SmarterShutterCover(CoverEntity, RestoreEntity):
         )
 
         self._last_command_time: float = 0.0
+        self._last_command_direction: str | None = None
         self._unsub_position_updater = None
         self._unsub_stop_timer = None
         self._unsub_state_listeners: list = []
@@ -188,6 +189,7 @@ class SmarterShutterCover(CoverEntity, RestoreEntity):
         self._tc.start_travel(direction, target)
 
         self._last_command_time = time.monotonic()
+        self._last_command_direction = direction
         try:
             await self._async_activate_motor(direction)
         except Exception:
@@ -231,6 +233,7 @@ class SmarterShutterCover(CoverEntity, RestoreEntity):
         self._tc.stop()
 
         self._last_command_time = time.monotonic()
+        self._last_command_direction = None
         await self._async_stop_motor(direction)
 
         self.async_write_ha_state()
@@ -256,6 +259,7 @@ class SmarterShutterCover(CoverEntity, RestoreEntity):
     async def _async_guarded_stop_motor(self, direction: str | None = None) -> None:
         """Stop motor while holding the command cooldown guard."""
         self._last_command_time = time.monotonic()
+        self._last_command_direction = None
         await self._async_stop_motor(direction)
 
     @callback
@@ -316,9 +320,6 @@ class SmarterShutterCover(CoverEntity, RestoreEntity):
     @callback
     def _async_source_state_changed(self, event: Event) -> None:
         """Handle state change of source switch/cover."""
-        if time.monotonic() - self._last_command_time < COMMAND_COOLDOWN_SECONDS:
-            return
-
         entity_id = event.data.get("entity_id")
         new_state = event.data.get("new_state")
         old_state = event.data.get("old_state")
@@ -326,10 +327,29 @@ class SmarterShutterCover(CoverEntity, RestoreEntity):
         if new_state is None or old_state is None:
             return
 
+        in_cooldown = (
+            time.monotonic() - self._last_command_time < COMMAND_COOLDOWN_SECONDS
+        )
+
         if self._control_mode == MODE_SWITCHES:
+            if in_cooldown:
+                return
             self._handle_switch_external_change(entity_id, old_state, new_state)
         elif self._control_mode == MODE_COVER:
-            self._handle_cover_external_change(new_state)
+            if in_cooldown and self._is_echo_of_command(new_state.state):
+                return
+            self._handle_cover_external_change(old_state, new_state)
+
+    @callback
+    def _is_echo_of_command(self, state: str) -> bool:
+        """Check if a cover state is the expected echo of our last command."""
+        direction = self._last_command_direction
+        if direction == DIR_DOWN:
+            return state in (STATE_CLOSING, STATE_CLOSED)
+        if direction == DIR_UP:
+            return state in (STATE_OPENING, STATE_OPEN)
+        # direction is None -> stop command
+        return state in (STATE_OPEN, STATE_CLOSED)
 
     @callback
     def _start_external_travel(self, direction: str, target: float) -> None:
@@ -370,9 +390,10 @@ class SmarterShutterCover(CoverEntity, RestoreEntity):
             self._stop_external_travel()
 
     @callback
-    def _handle_cover_external_change(self, new_state) -> None:
+    def _handle_cover_external_change(self, old_state, new_state) -> None:
         """Handle external cover entity state change."""
         state = new_state.state
+        old = old_state.state
 
         if state == STATE_OPENING:
             if not self._tc.is_traveling:
@@ -381,7 +402,20 @@ class SmarterShutterCover(CoverEntity, RestoreEntity):
             if not self._tc.is_traveling:
                 self._start_external_travel(DIR_DOWN, 0.0)
         elif state in (STATE_OPEN, STATE_CLOSED):
-            self._stop_external_travel()
+            if self._tc.is_traveling:
+                self._stop_external_travel()
+            else:
+                self._handle_direct_transition(old, state)
+
+    @callback
+    def _handle_direct_transition(self, old: str, new: str) -> None:
+        """Handle covers that jump directly to open/closed without intermediate states."""
+        if new == STATE_OPEN and old in (STATE_CLOSED, STATE_CLOSING):
+            self._tc.set_position(100)
+            self.async_write_ha_state()
+        elif new == STATE_CLOSED and old in (STATE_OPEN, STATE_OPENING):
+            self._tc.set_position(0)
+            self.async_write_ha_state()
 
     # --- Options update ---
 
