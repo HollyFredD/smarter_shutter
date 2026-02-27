@@ -115,6 +115,3 @@ class TravelCalculator:
 
         return (distance / 100.0) * travel_time + self._motor_inertia
 
-    def is_at_end_stop(self) -> bool:
-        """Return True if the cover is at a known end stop."""
-        return self._position <= 0.0 or self._position >= 100.0

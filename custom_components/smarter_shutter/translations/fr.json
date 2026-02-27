@@ -39,7 +39,31 @@
           "motor_inertia": "Secondes entre l'envoi d'une commande et le d\u00e9but r\u00e9el du mouvement. Mettez 0 si le moteur r\u00e9agit instantan\u00e9ment.",
           "stop_method": "La plupart des appareils acceptent une commande d'arr\u00eat directe. Si le v\u00f4tre ne la supporte pas (fr\u00e9quent avec certains relais Zigbee), choisissez 'Renvoyer le sens' qui renvoie la commande en cours pour couper le moteur."
         }
+      },
+      "calibration": {
+        "title": "Calibration initiale",
+        "description": "Le volet doit se fermer compl\u00e8tement pour que l'int\u00e9gration connaisse sa position de d\u00e9part. Cliquez sur Valider pour lancer la fermeture.",
+        "data": {
+          "skip_calibration": "Passer la calibration"
+        }
+      },
+      "calibration_progress": {
+        "title": "Calibration en cours"
+      },
+      "calibration_confirm": {
+        "title": "Calibration termin\u00e9e",
+        "description": "Le volet est-il bien compl\u00e8tement ferm\u00e9 ? Si oui, cliquez sur Valider pour terminer la configuration."
+      },
+      "calibration_failed": {
+        "title": "La calibration a \u00e9chou\u00e9",
+        "description": "Le volet n'a pas pu \u00eatre ferm\u00e9. V\u00e9rifiez que les entit\u00e9s s\u00e9lectionn\u00e9es sont correctes et que l'appareil est bien allum\u00e9. Cliquez sur Valider pour r\u00e9essayer, ou cochez la case pour passer.",
+        "data": {
+          "skip_calibration": "Passer la calibration"
+        }
       }
+    },
+    "progress": {
+      "closing_shutter": "Fermeture du volet en cours... Cela prend environ {travel_time} secondes."
     },
     "error": {
       "invalid_time": "Le temps de course doit \u00eatre sup\u00e9rieur \u00e0 z\u00e9ro secondes."

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 import time
 from datetime import timedelta
 
@@ -15,9 +14,6 @@ from homeassistant.components.cover import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     CONF_NAME,
-    SERVICE_OPEN_COVER,
-    SERVICE_CLOSE_COVER,
-    SERVICE_STOP_COVER,
     STATE_ON,
     STATE_OFF,
     STATE_OPEN,
@@ -35,7 +31,6 @@ from homeassistant.helpers.event import (
 from homeassistant.helpers.restore_state import RestoreEntity
 
 from .const import (
-    DOMAIN,
     MODE_SWITCHES,
     MODE_COVER,
     CONF_CONTROL_MODE,
@@ -46,16 +41,14 @@ from .const import (
     CONF_TRAVEL_TIME_DOWN,
     CONF_MOTOR_INERTIA,
     CONF_STOP_METHOD,
-    STOP_METHOD_RESEND,
     DEFAULT_TRAVEL_TIME,
     DEFAULT_MOTOR_INERTIA,
     DEFAULT_STOP_METHOD,
     DIR_UP,
     DIR_DOWN,
 )
+from .motor_helpers import async_activate_motor, async_stop_motor
 from .travel_calculator import TravelCalculator
-
-_LOGGER = logging.getLogger(__name__)
 
 POSITION_UPDATE_INTERVAL = timedelta(seconds=1)
 COMMAND_COOLDOWN_SECONDS = 2.0
@@ -77,6 +70,12 @@ class SmarterShutterCover(CoverEntity, RestoreEntity):
     _attr_has_entity_name = False
     _attr_should_poll = False
     _attr_assumed_state = True
+    _attr_supported_features = (
+        CoverEntityFeature.OPEN
+        | CoverEntityFeature.CLOSE
+        | CoverEntityFeature.STOP
+        | CoverEntityFeature.SET_POSITION
+    )
 
     def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry) -> None:
         """Initialize the cover."""
@@ -116,16 +115,6 @@ class SmarterShutterCover(CoverEntity, RestoreEntity):
         self._unsub_position_updater = None
         self._unsub_stop_timer = None
         self._unsub_state_listeners: list = []
-
-    @property
-    def supported_features(self) -> CoverEntityFeature:
-        """Return supported features."""
-        return (
-            CoverEntityFeature.OPEN
-            | CoverEntityFeature.CLOSE
-            | CoverEntityFeature.STOP
-            | CoverEntityFeature.SET_POSITION
-        )
 
     @property
     def current_cover_position(self) -> int:
@@ -221,67 +210,16 @@ class SmarterShutterCover(CoverEntity, RestoreEntity):
 
     async def _async_activate_motor(self, direction: str) -> None:
         """Turn on the appropriate switch or send cover command."""
-        try:
-            if self._control_mode == MODE_SWITCHES:
-                if direction == DIR_UP:
-                    await self._async_turn_off_switch(self._close_switch)
-                    await self._async_turn_on_switch(self._open_switch)
-                else:
-                    await self._async_turn_off_switch(self._open_switch)
-                    await self._async_turn_on_switch(self._close_switch)
-            elif self._control_mode == MODE_COVER:
-                if direction == DIR_UP:
-                    await self.hass.services.async_call(
-                        "cover", SERVICE_OPEN_COVER,
-                        {"entity_id": self._cover_entity},
-                    )
-                else:
-                    await self.hass.services.async_call(
-                        "cover", SERVICE_CLOSE_COVER,
-                        {"entity_id": self._cover_entity},
-                    )
-        except Exception:
-            _LOGGER.exception("Failed to activate motor (%s)", direction)
-            self._cancel_all_timers()
-            self._tc.stop()
-            raise
-
-    async def _async_stop_motor(self, direction: str | None = None) -> None:
-        """Stop the motor.
-
-        If stop_method is resend_direction, resend the current direction
-        command to toggle the motor off. Otherwise use the stop command.
-        """
-        try:
-            if self._control_mode == MODE_SWITCHES:
-                await self._async_turn_off_switch(self._open_switch)
-                await self._async_turn_off_switch(self._close_switch)
-            elif self._control_mode == MODE_COVER:
-                if self._stop_method == STOP_METHOD_RESEND and direction is not None:
-                    service = SERVICE_OPEN_COVER if direction == DIR_UP else SERVICE_CLOSE_COVER
-                    await self.hass.services.async_call(
-                        "cover", service,
-                        {"entity_id": self._cover_entity},
-                    )
-                else:
-                    await self.hass.services.async_call(
-                        "cover", SERVICE_STOP_COVER,
-                        {"entity_id": self._cover_entity},
-                    )
-        except Exception:
-            _LOGGER.exception("Failed to stop motor")
-            raise
-
-    async def _async_turn_on_switch(self, entity_id: str) -> None:
-        """Turn on a switch."""
-        await self.hass.services.async_call(
-            "switch", "turn_on", {"entity_id": entity_id}
+        await async_activate_motor(
+            self.hass, self._control_mode, direction,
+            self._open_switch, self._close_switch, self._cover_entity,
         )
 
-    async def _async_turn_off_switch(self, entity_id: str) -> None:
-        """Turn off a switch."""
-        await self.hass.services.async_call(
-            "switch", "turn_off", {"entity_id": entity_id}
+    async def _async_stop_motor(self, direction: str | None = None) -> None:
+        """Stop the motor."""
+        await async_stop_motor(
+            self.hass, self._control_mode, self._stop_method, direction,
+            self._open_switch, self._close_switch, self._cover_entity,
         )
 
     # --- Movement tracking ---
@@ -394,6 +332,29 @@ class SmarterShutterCover(CoverEntity, RestoreEntity):
             self._handle_cover_external_change(new_state)
 
     @callback
+    def _start_external_travel(self, direction: str, target: float) -> None:
+        """Begin tracking an externally triggered movement."""
+        if self._tc.is_traveling:
+            self._cancel_all_timers()
+            self._tc.stop()
+        self._tc.start_travel(direction, target)
+        self._start_position_updater()
+        self._unsub_stop_timer = async_call_later(
+            self.hass,
+            self._tc.time_to_position(target),
+            self._async_timed_stop,
+        )
+        self.async_write_ha_state()
+
+    @callback
+    def _stop_external_travel(self) -> None:
+        """Stop tracking when an external movement ends."""
+        if self._tc.is_traveling:
+            self._cancel_all_timers()
+            self._tc.stop()
+            self.async_write_ha_state()
+
+    @callback
     def _handle_switch_external_change(self, entity_id, old_state, new_state) -> None:
         """Handle external switch toggle (wall switch / ZBMINIR2)."""
         new = new_state.state
@@ -401,34 +362,12 @@ class SmarterShutterCover(CoverEntity, RestoreEntity):
 
         if new == STATE_ON and old == STATE_OFF:
             if entity_id == self._open_switch:
-                if self._tc.is_traveling:
-                    self._tc.stop()
-                    self._cancel_all_timers()
-                self._tc.start_travel(DIR_UP, 100.0)
-                self._start_position_updater()
-                self._unsub_stop_timer = async_call_later(
-                    self.hass,
-                    self._tc.time_to_position(100.0),
-                    self._async_timed_stop,
-                )
+                self._start_external_travel(DIR_UP, 100.0)
             elif entity_id == self._close_switch:
-                if self._tc.is_traveling:
-                    self._tc.stop()
-                    self._cancel_all_timers()
-                self._tc.start_travel(DIR_DOWN, 0.0)
-                self._start_position_updater()
-                self._unsub_stop_timer = async_call_later(
-                    self.hass,
-                    self._tc.time_to_position(0.0),
-                    self._async_timed_stop,
-                )
-            self.async_write_ha_state()
+                self._start_external_travel(DIR_DOWN, 0.0)
 
         elif new == STATE_OFF and old == STATE_ON:
-            if self._tc.is_traveling:
-                self._cancel_all_timers()
-                self._tc.stop()
-                self.async_write_ha_state()
+            self._stop_external_travel()
 
     @callback
     def _handle_cover_external_change(self, new_state) -> None:
@@ -437,29 +376,12 @@ class SmarterShutterCover(CoverEntity, RestoreEntity):
 
         if state == STATE_OPENING:
             if not self._tc.is_traveling:
-                self._tc.start_travel(DIR_UP, 100.0)
-                self._start_position_updater()
-                self._unsub_stop_timer = async_call_later(
-                    self.hass,
-                    self._tc.time_to_position(100.0),
-                    self._async_timed_stop,
-                )
-                self.async_write_ha_state()
+                self._start_external_travel(DIR_UP, 100.0)
         elif state == STATE_CLOSING:
             if not self._tc.is_traveling:
-                self._tc.start_travel(DIR_DOWN, 0.0)
-                self._start_position_updater()
-                self._unsub_stop_timer = async_call_later(
-                    self.hass,
-                    self._tc.time_to_position(0.0),
-                    self._async_timed_stop,
-                )
-                self.async_write_ha_state()
+                self._start_external_travel(DIR_DOWN, 0.0)
         elif state in (STATE_OPEN, STATE_CLOSED):
-            if self._tc.is_traveling:
-                self._cancel_all_timers()
-                self._tc.stop()
-                self.async_write_ha_state()
+            self._stop_external_travel()
 
     # --- Options update ---
 

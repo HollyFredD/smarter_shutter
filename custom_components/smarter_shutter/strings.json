@@ -39,7 +39,31 @@
           "motor_inertia": "Seconds between sending a command and the motor actually starting to move. Set to 0 if the motor reacts instantly.",
           "stop_method": "Most devices accept a stop command directly. If yours does not (common with some Zigbee relays), choose 'Send direction again' instead -- it resends the current direction to toggle the motor off."
         }
+      },
+      "calibration": {
+        "title": "Initial calibration",
+        "description": "The shutter needs to close completely so the integration knows its starting position. Click Submit to start closing the shutter now.",
+        "data": {
+          "skip_calibration": "Skip calibration"
+        }
+      },
+      "calibration_progress": {
+        "title": "Calibration in progress"
+      },
+      "calibration_confirm": {
+        "title": "Calibration complete",
+        "description": "Is the shutter fully closed? If yes, click Submit to finish the setup."
+      },
+      "calibration_failed": {
+        "title": "Calibration failed",
+        "description": "The shutter could not be closed. Check that the selected entities are correct and that the device is powered on. Click Submit to retry, or check the box to skip.",
+        "data": {
+          "skip_calibration": "Skip calibration"
+        }
       }
+    },
+    "progress": {
+      "closing_shutter": "Closing the shutter... This takes about {travel_time} seconds."
     },
     "error": {
       "invalid_time": "Travel time must be greater than zero seconds."
